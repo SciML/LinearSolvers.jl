@@ -6,7 +6,6 @@ end
 
 import PrecompileTools
 using ArrayInterface
-using RecursiveFactorization
 using Base: cache_dependencies, Bool
 using LinearAlgebra
 using SparseArrays
@@ -127,6 +126,7 @@ end
 const BLASELTYPES = Union{Float32, Float64, ComplexF32, ComplexF64}
 
 include("common.jl")
+include("extension_algs.jl")
 include("factorization.jl")
 include("appleaccelerate.jl")
 include("mkl.jl")
@@ -137,7 +137,6 @@ include("preconditioners.jl")
 include("solve_function.jl")
 include("default.jl")
 include("init.jl")
-include("extension_algs.jl")
 include("adjoint.jl")
 include("deprecated.jl")
 
@@ -212,7 +211,6 @@ PrecompileTools.@compile_workload begin
     prob = LinearProblem(A, b)
     sol = solve(prob)
     sol = solve(prob, LUFactorization())
-    sol = solve(prob, RFLUFactorization())
     sol = solve(prob, KrylovJL_GMRES())
 end
 
