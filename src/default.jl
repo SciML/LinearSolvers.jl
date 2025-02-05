@@ -106,21 +106,6 @@ function defaultalg(A::AbstractSparseMatrixCSC{Tv, Ti}, b,
     end
 end
 
-@static if INCLUDE_SPARSE
-    function defaultalg(A::AbstractSparseMatrixCSC{<:Union{Float64, ComplexF64}, Ti}, b,
-            assump::OperatorAssumptions{Bool}) where {Ti}
-        if assump.issq
-            if length(b) <= 10_000 && length(nonzeros(A)) / length(A) < 2e-4
-                DefaultLinearSolver(DefaultAlgorithmChoice.KLUFactorization)
-            else
-                DefaultLinearSolver(DefaultAlgorithmChoice.UMFPACKFactorization)
-            end
-        else
-            DefaultLinearSolver(DefaultAlgorithmChoice.QRFactorization)
-        end
-    end
-end
-
 function defaultalg(A::GPUArraysCore.AnyGPUArray, b, assump::OperatorAssumptions{Bool})
     if assump.condition === OperatorCondition.IllConditioned || !assump.issq
         DefaultLinearSolver(DefaultAlgorithmChoice.QRFactorization)
@@ -178,14 +163,15 @@ function defaultalg(A, b, assump::OperatorAssumptions{Bool})
                (__conditioning(assump) === OperatorCondition.IllConditioned ||
                 __conditioning(assump) === OperatorCondition.WellConditioned)
                 if length(b) <= 10
-                    DefaultAlgorithmChoice.RFLUFactorization
+                    DefaultAlgorithmChoice.GenericLUFactorization
                 elseif appleaccelerate_isavailable() && b isa Array &&
                        eltype(b) <: Union{Float32, Float64, ComplexF32, ComplexF64}
                     DefaultAlgorithmChoice.AppleAccelerateLUFactorization
                 elseif (length(b) <= 100 || (isopenblas() && length(b) <= 500) ||
                         (usemkl && length(b) <= 200)) &&
                        (A === nothing ? eltype(b) <: Union{Float32, Float64} :
-                        eltype(A) <: Union{Float32, Float64})
+                        eltype(A) <: Union{Float32, Float64}) &&
+                        Base.get_extension(@__MODULE__, :LinearSolveRecursiveFactorizationExt)
                     DefaultAlgorithmChoice.RFLUFactorization
                     #elseif A === nothing || A isa Matrix
                     #    alg = FastLUFactorization()
@@ -265,7 +251,7 @@ function algchoice_to_alg(alg::Symbol)
     elseif alg === :GenericLUFactorization
         GenericLUFactorization()
     elseif alg === :RFLUFactorization
-        RFLUFactorization()
+        RFLUFactorization(throwerror = false)
     elseif alg === :BunchKaufmanFactorization
         BunchKaufmanFactorization()
     elseif alg === :CHOLMODFactorization
